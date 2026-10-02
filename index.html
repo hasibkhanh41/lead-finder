@@ -1,1 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<title>Lead Finder</title>
+
+<style>
+*{
+  box-sizing:border-box;
+}
+
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#0b1020;
+  color:#fff;
+}
+
+.container{
+  max-width:1100px;
+  margin:auto;
+  padding:40px 20px;
+}
+
+h1{
+  margin-bottom:8px;
+}
+
+.subtitle{
+  color:#9aa5bd;
+  margin-bottom:30px;
+}
+
+.card{
+  background:#121a2d;
+  border:1px solid #293550;
+  border-radius:16px;
+  padding:25px;
+  margin-bottom:20px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr 120px;
+  gap:15px;
+}
+
+label{
+  display:block;
+  color:#aeb8d0;
+  font-size:13px;
+  margin-bottom:7px;
+}
+
+input{
+  width:100%;
+  padding:13px;
+  border-radius:9px;
+  border:1px solid #394663;
+  background:#0d1425;
+  color:white;
+  outline:none;
+}
+
+.fields{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:10px;
+}
+
+.checkbox{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:11px 15px;
+  border:1px solid #394663;
+  border-radius:9px;
+  background:#0d1425;
+  cursor:pointer;
+}
+
+.checkbox input{
+  width:auto;
+}
+
+button{
+  margin-top:20px;
+  padding:13px 25px;
+  border:none;
+  border-radius:9px;
+  background:#6677ff;
+  color:white;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+button:disabled{
+  opacity:.6;
+  cursor:wait;
+}
+
+.status{
+  margin-top:15px;
+  color:#9aa5bd;
+}
+
+.table-wrap{
+  overflow:auto;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+th,td{
+  padding:14px;
+  border-bottom:1px solid #293550;
+  text-align:left;
+  white-space:nowrap;
+}
+
+th{
+  color:#aeb8d0;
+  font-size:12px;
+  text-transform:uppercase;
+}
+
+a{
+  color:#8fa0ff;
+  text-decoration:none;
+}
+
+.empty{
+  text-align:center;
+  color:#7f8ba7;
+  padding:40px;
+}
+
+@media(max-width:700px){
+  .grid{
+    grid-template-columns:1fr;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <h1>Lead Finder</h1>
+
+  <div class="subtitle">
+    Find businesses based on the fields you select.
+  </div>
+
+  <div class="card">
+
+    <div class="grid">
+
+      <div>
+        <label>Lead Type</label>
+        <input
+          id="leadType"
+          value="Restaurants"
+          placeholder="Restaurants"
+        >
+      </div>
+
+      <div>
+        <label>Location</label>
+        <input
+          id="location"
+          value="New York, USA"
+          placeholder="New York, USA"
+        >
+      </div>
+
+      <div>
+        <label>Limit</label>
+        <input
+          id="limit"
+          type="number"
+          min="1"
+          max="100"
+          value="5"
+        >
+      </div>
+
+    </div>
+
+
+    <div style="margin-top:25px">
+
+      <label>Select Fields</label>
+
+      <div class="fields">
+
+        <label class="checkbox">
+          <input
+            type="checkbox"
+            value="phone"
+            checked
+          >
+          Phone
+        </label>
+
+        <label class="checkbox">
+          <input
+            type="checkbox"
+            value="facebook"
+            checked
+          >
+          Facebook
+        </label>
+
+        <label class="checkbox">
+          <input
+            type="checkbox"
+            value="instagram"
+            checked
+          >
+          Instagram
+        </label>
+
+      </div>
+
+    </div>
+
+
+    <div style="margin-top:20px">
+
+      <label>User ID</label>
+
+      <input
+        id="userId"
+        placeholder="Enter your User ID"
+      >
+
+    </div>
+
+
+    <button id="searchBtn">
+      Search Leads
+    </button>
+
+    <div id="status" class="status"></div>
+
+  </div>
+
+
+  <div class="card">
+
+    <div class="table-wrap">
+
+      <table id="results">
+
+        <thead></thead>
+
+        <tbody>
+          <tr>
+            <td class="empty">
+              Search results will appear here.
+            </td>
+          </tr>
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<script>
+
+const WEBHOOK_URL =
+"https://mailmarketing756.app.n8n.cloud/webhook/15896128-3bf2-4ac6-8470-dde6a223e0a3";
+
+
+const searchBtn =
+document.getElementById("searchBtn");
+
+const status =
+document.getElementById("status");
+
+
+function escapeHTML(value){
+
+  return String(value ?? "")
+    .replace(/[&<>"']/g, function(char){
+
+      return {
+        "&":"&amp;",
+        "<":"&lt;",
+        ">":"&gt;",
+        '"':"&quot;",
+        "'":"&#039;"
+
+      }[char];
+
+    });
+
+}
+
+
+function getField(item, field){
+
+  if(field === "phone"){
+
+    return (
+      item.phone ||
+      item.business_phone ||
+      ""
+    );
+
+  }
+
+
+  if(field === "facebook"){
+
+    return (
+      item.facebook ||
+      item.socials?.facebook ||
+      item.metadata?.socials?.facebook ||
+      ""
+    );
+
+  }
+
+
+  if(field === "instagram"){
+
+    return (
+      item.instagram ||
+      item.socials?.instagram ||
+      item.metadata?.socials?.instagram ||
+      ""
+    );
+
+  }
+
+  return "";
+
+}
+
+
+function displayValue(value){
+
+  if(!value){
+    return "—";
+  }
+
+  value = String(value);
+
+
+  if(/^https?:\/\//i.test(value)){
+
+    return `
+      <a
+        href="${escapeHTML(value)}"
+        target="_blank"
+      >
+        ${escapeHTML(value)}
+      </a>
+    `;
+
+  }
+
+  return escapeHTML(value);
+
+}
+
+
+function normalizeResults(data){
+
+  if(Array.isArray(data)){
+    return data;
+  }
+
+  if(Array.isArray(data.results)){
+    return data.results;
+  }
+
+  if(Array.isArray(data.data)){
+    return data.data;
+  }
+
+  if(Array.isArray(data.items)){
+    return data.items;
+  }
+
+  if(data && typeof data === "object"){
+    return [data];
+  }
+
+  return [];
+
+}
+
+
+function showResults(results, fields){
+
+  const table =
+    document.getElementById("results");
+
+
+  const headers = [
+    "Business",
+    ...fields.map(
+      field =>
+        field.charAt(0).toUpperCase() +
+        field.slice(1)
+    )
+  ];
+
+
+  table.querySelector("thead").innerHTML = `
+    <tr>
+      ${headers
+        .map(header => `<th>${header}</th>`)
+        .join("")}
+    </tr>
+  `;
+
+
+  if(results.length === 0){
+
+    table.querySelector("tbody").innerHTML = `
+      <tr>
+        <td
+          class="empty"
+          colspan="${headers.length}"
+        >
+          No results found.
+        </td>
+      </tr>
+    `;
+
+    return;
+
+  }
+
+
+  table.querySelector("tbody").innerHTML =
+    results.map(item => {
+
+      const businessName =
+        item.company_name ||
+        item.business_name ||
+        item.name ||
+        item.title ||
+        "Unknown Business";
+
+
+      return `
+        <tr>
+
+          <td>
+            ${escapeHTML(businessName)}
+          </td>
+
+          ${fields.map(field => `
+
+            <td>
+              ${displayValue(
+                getField(item, field)
+              )}
+            </td>
+
+          `).join("")}
+
+        </tr>
+      `;
+
+    }).join("");
+
+}
+
+
+searchBtn.addEventListener(
+  "click",
+  async function(){
+
+    const leadType =
+      document.getElementById(
+        "leadType"
+      ).value.trim();
+
+
+    const location =
+      document.getElementById(
+        "location"
+      ).value.trim();
+
+
+    const limit =
+      Number(
+        document.getElementById(
+          "limit"
+        ).value
+      );
+
+
+    const userId =
+      document.getElementById(
+        "userId"
+      ).value.trim();
+
+
+    const fields =
+      [...document.querySelectorAll(
+        ".fields input:checked"
+      )].map(
+        checkbox => checkbox.value
+      );
+
+
+    if(!leadType){
+
+      status.textContent =
+        "Lead Type is required.";
+
+      return;
+
+    }
+
+
+    if(!location){
+
+      status.textContent =
+        "Location is required.";
+
+      return;
+
+    }
+
+
+    if(!userId){
+
+      status.textContent =
+        "User ID is required.";
+
+      return;
+
+    }
+
+
+    if(fields.length === 0){
+
+      status.textContent =
+        "Select at least one field.";
+
+      return;
+
+    }
+
+
+    const requestData = {
+
+      user_id: userId,
+
+      lead_type: leadType,
+
+      location: location,
+
+      limit: limit,
+
+      fields: fields
+
+    };
+
+
+    searchBtn.disabled = true;
+
+    status.textContent =
+      "Searching leads...";
+
+
+    try{
+
+      const response =
+        await fetch(
+          WEBHOOK_URL,
+          {
+            method:"POST",
+
+            headers:{
+              "Content-Type":
+                "application/json"
+            },
+
+            body:
+              JSON.stringify(
+                requestData
+              )
+          }
+        );
+
+
+      const text =
+        await response.text();
+
+
+      let data;
+
+
+      try{
+
+        data =
+          JSON.parse(text);
+
+      }catch{
+
+        data = text;
+
+      }
+
+
+      if(!response.ok){
+
+        throw new Error(
+          typeof data === "string"
+            ? data
+            : (
+                data.message ||
+                "Webhook request failed"
+              )
+        );
+
+      }
+
+
+      const results =
+        normalizeResults(data);
+
+
+      showResults(
+        results,
+        fields
+      );
+
+
+      status.textContent =
+        `${results.length} lead(s) found.`;
+
+
+    }catch(error){
+
+      status.textContent =
+        "Error: " +
+        error.message;
+
+    }finally{
+
+      searchBtn.disabled = false;
+
+    }
+
+  }
+
+);
+
+</script>
+
+</body>
+</html>
